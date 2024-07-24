@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// TODO: Add message passing to the websocket connection (Broadcast movements to the players in the room on a regular interval)
 // TODO: Take sequence numbers from the client and send them back to the client
 // TODO: On player add, send them their id
 
@@ -27,7 +26,7 @@ type Game struct {
 func NewGame() *Game {
 	game := &Game{
 		Rooms: []*Room{
-			{ID: uuid.New().String(), Name: "room 1", Slots: 4, players: []Player{}, RWMutex: &sync.RWMutex{}, receive: make(chan []byte, 10)},
+			{ID: uuid.New().String(), Name: "Room 1", Slots: 4, players: []Player{}, RWMutex: &sync.RWMutex{}, receive: make(chan Message, 10)},
 		},
 	}
 
@@ -47,13 +46,18 @@ func (g *Game) GetRoom(id string) *Room {
 	return nil
 }
 
+type Message struct {
+	ID      string
+	Message []byte
+}
+
 type Room struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Slots       int64  `json:"slots"`
 	players     []Player
 	PlayerCount int64 `json:"player_count"`
-	receive     chan []byte
+	receive     chan Message
 	*sync.RWMutex
 }
 
@@ -63,12 +67,25 @@ func (r *Room) PlayLoop() {
 
 	for {
 		select {
+		// TODO: Handle these messages
+		// Joins
+		// Movement
+		// Shoot
+		// Respawn
+		// Quit
 		case message, ok := <-r.receive:
 			if !ok {
 				return
 			}
 
-			logrus.WithField("msg", string(message)).Info("received message")
+			logrus.WithFields(
+				logrus.Fields{
+					"msg":    string(message.Message),
+					"player": message.ID,
+				},
+			).Info("received message")
+
+		// TODO: Broadcast out the game state
 		case <-ticker.C:
 			logrus.Info("updating clients")
 		}
@@ -154,7 +171,7 @@ func (p *Player) HandleReads() {
 			break
 		}
 
-		p.room.receive <- message
+		p.room.receive <- Message{p.ID, message}
 		logrus.WithFields(logrus.Fields{
 			"id":   p.ID,
 			"room": p.room.ID,
