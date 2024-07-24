@@ -1,7 +1,14 @@
 class Game extends HTMLElement {
 	constructor() {
 		super();
-		this.attachShadow({ mode: 'open' });
+		this.shadow = this.attachShadow({ mode: 'open' });
+	}
+
+	join(event) {
+		let buttons = this.shadow.querySelector("button")
+		buttons.removeEventListener("click", this.join)
+
+		console.log(event.target);
 	}
 
 	async connectedCallback() {
@@ -10,13 +17,23 @@ class Game extends HTMLElement {
 		})
 
 		data.forEach((room) => {
-			this.shadowRoot.append(`
+			this.shadowRoot.innerHTML += `
+			<style>
+				.room {
+					display: flex;
+					flex-direction: row;
+					justify-content: space-between;
+				}
+			</style>
 			<div class="room">
 				<p>${room.name}</p>
-				<button>Connect</button>
+				<button id="${room.id}">Connect</button>
 			</div>
-			`)
+			`
 		})
+
+		let buttons = this.shadow.querySelector("button")
+		buttons.addEventListener("click", this.join)
 
 		/* Canvas
 		this.shadowRoot.innerHTML = `
@@ -26,6 +43,8 @@ class Game extends HTMLElement {
 	}
 
 	disconnectedCallback() {
+		let buttons = this.shadow.querySelector("button")
+		buttons.removeEventListener("click", this.join)
 		this.shadowRoot.innerHTML = '';
 		console.log('Game destroyed');
 	}
