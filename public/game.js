@@ -65,6 +65,7 @@ class Game extends HTMLElement {
 
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // TODO: Add predictive movement using sequence numbers
     if (this.players) {
       this.players.forEach((player) => {
         this.ctx.beginPath();

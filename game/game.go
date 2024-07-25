@@ -12,9 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO: Take sequence numbers from the client and send them back to the client
-// TODO: On player add, send them their id
-
 const (
 	Width         = 768
 	Height        = 768
@@ -89,7 +86,6 @@ func (r *Room) PlayLoop() {
 	for {
 		select {
 		// TODO: Handle these messages
-		// Movement
 		// Shoot
 		// Respawn
 		// Quit
