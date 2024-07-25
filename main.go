@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
+	"shoot/templates"
 	"time"
 )
 
@@ -21,10 +22,13 @@ func main() {
 
 	router := mux.NewRouter()
 
+	router.HandleFunc("/", HandleIndex()).Methods("GET")
 	router.HandleFunc("/room/list", ListRooms(game)).Methods("GET")
 	router.HandleFunc("/room/{room}/ws", JoinRoom(game)).Methods("GET")
 
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/"))).Methods("GET")
+	router.PathPrefix("/public").Handler(
+		http.StripPrefix("/public", http.FileServer(http.Dir("./public/"))),
+	).Methods("GET")
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -41,6 +45,15 @@ func main() {
 	err := server.ListenAndServe()
 	if err != nil {
 		panic(err)
+	}
+}
+
+func HandleIndex() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := templates.Index().Render(r.Context(), w)
+		if err != nil {
+			logrus.WithError(err).Error("failed to render index page")
+		}
 	}
 }
 

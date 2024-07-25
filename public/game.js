@@ -1,52 +1,48 @@
 class Game extends HTMLElement {
 	constructor() {
 		super();
-		this.shadow = this.attachShadow({ mode: 'open' });
+		this.movement = {up: false, down: false, left: false, right: false}
+
+		this.handle_keypress = this.handle_keypress.bind(this)
 	}
 
-	join(event) {
-		let buttons = this.shadow.querySelector("button")
-		buttons.removeEventListener("click", this.join)
-
-		console.log(event.target);
+	handle_keypress(event) {
+		switch (event.key) {
+			case 'w' || 'ArrowUp':
+				this.movement.up = event.type === 'keydown'
+				break
+			case 's' || 'ArrowDown':
+				this.movement.down = event.type === 'keydown'
+				break
+			case 'a' || 'ArrowLeft':
+				this.movement.left = event.type === 'keydown'
+				break
+			case 'd' || 'ArrowRight':
+				this.movement.right = event.type === 'keydown'
+				break
+		}
 	}
 
-	async connectedCallback() {
-		let data = await fetch('/room/list').then(async r => {
-			return await r.json().then(data => {return data});
-		})
+	connectedCallback() {
+		this.attachShadow({ mode: 'open' });
 
-		data.forEach((room) => {
-			this.shadowRoot.innerHTML += `
-			<style>
-				.room {
-					display: flex;
-					flex-direction: row;
-					justify-content: space-between;
-				}
-			</style>
-			<div class="room">
-				<p>${room.name}</p>
-				<button id="${room.id}">Connect</button>
-			</div>
-			`
-		})
-
-		let buttons = this.shadow.querySelector("button")
-		buttons.addEventListener("click", this.join)
-
-		/* Canvas
 		this.shadowRoot.innerHTML = `
-          <canvas id="game-window"></canvas>
+            <link rel="stylesheet" href="/public/global.css">
+			<canvas id="game-window"></canvas>
         `;
-		 */
+
+		this.canvas = this.shadowRoot.querySelector("#game-window")
+		this.ctx = this.canvas.getContext("2d")
+
+		window.addEventListener("keydown", this.handle_keypress)
+		window.addEventListener("keyup", this.handle_keypress)
 	}
 
 	disconnectedCallback() {
-		let buttons = this.shadow.querySelector("button")
-		buttons.removeEventListener("click", this.join)
+		window.removeEventListener("keydown", this.handle_keypress)
+		window.removeEventListener("keyup", this.handle_keypress)
+
 		this.shadowRoot.innerHTML = '';
-		console.log('Game destroyed');
 	}
 }
 

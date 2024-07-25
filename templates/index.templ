@@ -1,0 +1,21 @@
+package templates
+
+templ Index() {
+    <!DOCTYPE html>
+    <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Shoot!</title>
+            <script src="/public/htmx.min.js"></script>
+            <script src="/public/game.js"></script>
+            <link rel="stylesheet" href="/public/global.css">
+            <link rel="icon" type="image/x-icon" href="/public/favicon.jpg">
+        </head>
+
+        <body>
+            <div class="container">
+                <game-window class="game"></game-window>
+            </div>
+        </body>
+    </html>
+}
