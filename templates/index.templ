@@ -1,7 +1,9 @@
 package templates
 
-import "fmt"
-import "github.com/nilptrderef/shoot/game"
+import (
+	"fmt"
+	"github.com/nilptrderef/shoot/game"
+)
 
 templ Index() {
 	<!DOCTYPE html>
@@ -16,7 +18,7 @@ templ Index() {
 		</head>
 		<body>
 			<div class="container">
-                <div hx-get="/room/list" hx-trigger="load" hx-swap="outerHTML"></div>
+				<div hx-get="/room/list" hx-trigger="load" hx-swap="outerHTML"></div>
 			</div>
 		</body>
 	</html>
@@ -26,13 +28,13 @@ templ Rooms(rooms []*game.Room) {
 	<div class="room-picker">
 		for _, room := range rooms {
 			<div class="room">
-				<p>{ room.Name }</p>
-				<button hx-get={fmt.Sprintf("/room/%s",room.ID)} hx-target="closest .room-picker" hx-swap="outerHTML">Connect</button>
+				<p>{ room.Name } ({ fmt.Sprintf("%d/%d", room.PlayerCount, room.Slots) })</p>
+				<button hx-get={ fmt.Sprintf("/room/%s", room.ID) } hx-target="closest .room-picker" hx-swap="outerHTML">Connect</button>
 			</div>
 		}
 	</div>
 }
 
 templ Game(room string) {
-    <game-window class="game" room={room}></game-window>
+	<game-window class="game" room={ room }></game-window>
 }

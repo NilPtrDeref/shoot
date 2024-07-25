@@ -2,11 +2,12 @@ package game
 
 import (
 	"errors"
+	"sync"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
-	"sync"
-	"time"
 )
 
 // TODO: Take sequence numbers from the client and send them back to the client
@@ -17,6 +18,7 @@ const (
 	PingTime      = 10 * time.Second
 	PongTimeout   = 12 * time.Second
 	WriteDeadline = 10 * time.Second
+	Slots         = 1
 )
 
 type Game struct {
@@ -26,7 +28,7 @@ type Game struct {
 func NewGame() *Game {
 	game := &Game{
 		Rooms: []*Room{
-			{ID: uuid.New().String(), Name: "Room 1", Slots: 4, players: []Player{}, RWMutex: &sync.RWMutex{}, receive: make(chan Message, 10)},
+			{ID: uuid.New().String(), Name: "Room 1", Slots: Slots, players: []Player{}, RWMutex: &sync.RWMutex{}, receive: make(chan Message, 10)},
 		},
 	}
 

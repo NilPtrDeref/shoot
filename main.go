@@ -1,14 +1,15 @@
 package main
 
 import (
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nilptrderef/shoot/game"
 	"github.com/nilptrderef/shoot/templates"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"os"
-	"time"
 )
 
 var upgrade = websocket.Upgrader{
@@ -94,7 +95,9 @@ func JoinRoom(g *game.Game) http.HandlerFunc {
 
 		err = room.AddPlayer(conn)
 		if err != nil {
-			http.Error(w, `{"error": "room is full"}`, http.StatusForbidden)
+			logrus.WithError(err).Error("error joining room")
+			conn.WriteJSON(map[string]string{"type": "error", "error": "failed to join room"})
+			conn.Close()
 			return
 		}
 	}
