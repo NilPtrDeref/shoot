@@ -33,6 +33,9 @@ class Game extends HTMLElement {
 
 		this.canvas = this.shadowRoot.querySelector("#game-window")
 		this.ctx = this.canvas.getContext("2d")
+		this.room = this.getAttribute("room")
+
+		console.log(this.room)
 
 		window.addEventListener("keydown", this.handle_keypress)
 		window.addEventListener("keyup", this.handle_keypress)

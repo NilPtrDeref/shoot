@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/nilptrderef/shoot/game"
+	"github.com/nilptrderef/shoot/templates"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
-	"shoot/templates"
 	"time"
 )
 
@@ -18,13 +18,14 @@ var upgrade = websocket.Upgrader{
 }
 
 func main() {
-	game := NewGame()
+	g := game.NewGame()
 
 	router := mux.NewRouter()
 
 	router.HandleFunc("/", HandleIndex()).Methods("GET")
-	router.HandleFunc("/room/list", ListRooms(game)).Methods("GET")
-	router.HandleFunc("/room/{room}/ws", JoinRoom(game)).Methods("GET")
+	router.HandleFunc("/room/list", ListRooms(g)).Methods("GET")
+	router.HandleFunc("/room/{room}", LoadRoom()).Methods("GET")
+	router.HandleFunc("/room/{room}/ws", JoinRoom(g)).Methods("GET")
 
 	router.PathPrefix("/public").Handler(
 		http.StripPrefix("/public", http.FileServer(http.Dir("./public/"))),
@@ -57,22 +58,29 @@ func HandleIndex() http.HandlerFunc {
 	}
 }
 
-func ListRooms(game *Game) http.HandlerFunc {
+func ListRooms(g *game.Game) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		encoder := json.NewEncoder(w)
-		err := encoder.Encode(game.Rooms)
+		err := templates.Rooms(g.Rooms).Render(r.Context(), w)
 		if err != nil {
-			logrus.WithError(err).Error("Failed to encode rooms out to user")
+			logrus.WithError(err).Error("failed to render room list")
 		}
 	}
 }
 
-func JoinRoom(game *Game) http.HandlerFunc {
+func LoadRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["room"]
-		room := game.GetRoom(id)
+		err := templates.Game(id).Render(r.Context(), w)
+		if err != nil {
+			logrus.WithError(err).Error("failed to render game room")
+		}
+	}
+}
+
+func JoinRoom(g *game.Game) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["room"]
+		room := g.GetRoom(id)
 		if room == nil {
 			http.Error(w, `{"error": "room not found"}`, http.StatusNotFound)
 			return

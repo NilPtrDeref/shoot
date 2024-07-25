@@ -1,4 +1,4 @@
-module shoot
+module github.com/nilptrderef/shoot
 
 go 1.22
 

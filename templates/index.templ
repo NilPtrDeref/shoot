@@ -1,21 +1,38 @@
 package templates
 
-templ Index() {
-    <!DOCTYPE html>
-    <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <title>Shoot!</title>
-            <script src="/public/htmx.min.js"></script>
-            <script src="/public/game.js"></script>
-            <link rel="stylesheet" href="/public/global.css">
-            <link rel="icon" type="image/x-icon" href="/public/favicon.jpg">
-        </head>
+import "fmt"
+import "github.com/nilptrderef/shoot/game"
 
-        <body>
-            <div class="container">
-                <game-window class="game"></game-window>
-            </div>
-        </body>
-    </html>
+templ Index() {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<title>Shoot!</title>
+			<script src="/public/htmx.min.js"></script>
+			<script src="/public/game.js"></script>
+			<link rel="stylesheet" href="/public/global.css"/>
+			<link rel="icon" type="image/x-icon" href="/public/favicon.jpg"/>
+		</head>
+		<body>
+			<div class="container">
+                <div hx-get="/room/list" hx-trigger="load" hx-swap="outerHTML"></div>
+			</div>
+		</body>
+	</html>
+}
+
+templ Rooms(rooms []*game.Room) {
+	<div class="room-picker">
+		for _, room := range rooms {
+			<div class="room">
+				<p>{ room.Name }</p>
+				<button hx-get={fmt.Sprintf("/room/%s",room.ID)} hx-target="closest .room-picker" hx-swap="outerHTML">Connect</button>
+			</div>
+		}
+	</div>
+}
+
+templ Game(room string) {
+    <game-window class="game" room={room}></game-window>
 }
