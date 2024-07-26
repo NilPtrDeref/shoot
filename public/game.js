@@ -78,11 +78,12 @@ class Game extends HTMLElement {
         this.movement.right = event.type === "keydown";
         break;
       case "c":
-        this.ws.send(
-          JSON.stringify({
-            type: "reskin",
-          }),
-        );
+        if (event.type === "keyup")
+          this.ws.send(
+            JSON.stringify({
+              type: "reskin",
+            }),
+          );
         break;
       case "Escape":
         location.reload();
