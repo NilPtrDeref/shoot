@@ -40,7 +40,6 @@ class Game extends HTMLElement {
 
     if (data.type === "bootstrap") {
       this.self = data.id;
-      this.players = data.players;
     }
 
     if (data.type === "update") {

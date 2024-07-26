@@ -165,10 +165,26 @@ func (r *Room) AddPlayer(conn *websocket.Conn) error {
 	r.players = append(r.players, player)
 	r.PlayerCount = int64(len(r.players))
 	player.conn.WriteJSON(map[string]any{
-		"type":    "bootstrap",
-		"id":      player.ID,
+		"type": "bootstrap",
+		"id":   player.ID,
+	})
+
+	msg, err := json.Marshal(map[string]any{
+		"type":    "update",
 		"players": &r.players,
 	})
+	if err == nil {
+		for _, player := range r.players {
+			player.send <- msg
+		}
+	} else {
+		logrus.WithFields(
+			logrus.Fields{
+				"room": r.ID,
+			},
+		).WithError(err).Error("failed to marshal game state")
+	}
+
 	go player.Handle()
 	return nil
 }
