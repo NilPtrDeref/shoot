@@ -28,7 +28,10 @@ templ Rooms(rooms []*game.Room) {
 	<div class="room-picker">
 		for _, room := range rooms {
 			<div class="room">
-				<p>{ room.Name } ({ fmt.Sprintf("%d/%d", room.PlayerCount, room.Slots) })</p>
+				<span class="room-name-container">
+					<p class="room-name">{ room.Name }</p>
+					({ fmt.Sprintf("%d/%d", room.PlayerCount, room.Slots) })
+				</span>
 				<button hx-get={ fmt.Sprintf("/room/%s", room.ID) } hx-target="closest .room-picker" hx-swap="outerHTML">Connect</button>
 			</div>
 		}

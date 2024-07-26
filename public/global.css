@@ -1,7 +1,29 @@
+@font-face {
+    font-family: BerkeleyMono;
+    src: url('/public/BerkeleyMonoVariable-Regular.woff2');
+}
+
 body {
+    font-family: BerkeleyMono;
+}
+
+* {
     margin: 0;
 }
 
+html {
+    background-color: hsl(225, 7.84%, 20%);
+    color: hsl(50, 20%, 94.12%);
+}
+
+button {
+    background-color: hsl(6.32, 37.25%, 50%);
+    color: hsl(50, 20%, 94.12%);
+    border-radius: 1rem;
+    padding: 1rem;
+    font-size: 1rem;
+    font-family: BerkeleyMono;
+}
 
 .container {
     width: 100vw;
@@ -19,7 +41,8 @@ body {
 #game-window {
     width: 100%;
     height: 100%;
-    border: 1px solid black;
+    border: 5px solid hsl(50, 20%, 94.12%);;
+    border-radius: 5px;
     background-color: black;
 }
 
@@ -35,4 +58,15 @@ body {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+}
+
+.room-name-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 2rem;
+    gap: 2rem;
+    padding: 0;
+    margin: 0;
 }
