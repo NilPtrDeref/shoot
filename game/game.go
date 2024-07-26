@@ -26,7 +26,7 @@ const (
 	PingTime        = 10 * time.Second
 	PongTimeout     = 12 * time.Second
 	WriteDeadline   = 10 * time.Second
-	Slots           = 2
+	Slots           = 4
 )
 
 func CheckCollision(player Player, bullet Bullet) bool {
@@ -51,6 +51,9 @@ func NewGame() *Game {
 	game := &Game{
 		Rooms: []*Room{
 			{ID: uuid.New().String(), Name: "Room 1", Slots: Slots, players: []Player{}, RWMutex: &sync.RWMutex{}, receive: make(chan Message, 10)},
+			{ID: uuid.New().String(), Name: "Room 2", Slots: Slots, players: []Player{}, RWMutex: &sync.RWMutex{}, receive: make(chan Message, 10)},
+			{ID: uuid.New().String(), Name: "Room 3", Slots: Slots, players: []Player{}, RWMutex: &sync.RWMutex{}, receive: make(chan Message, 10)},
+			{ID: uuid.New().String(), Name: "Room 4", Slots: Slots, players: []Player{}, RWMutex: &sync.RWMutex{}, receive: make(chan Message, 10)},
 		},
 	}
 

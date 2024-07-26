@@ -41,7 +41,8 @@ button {
 #game-window {
     width: 100%;
     height: 100%;
-    border: 5px solid hsl(50, 20%, 94.12%);;
+    border: 5px solid hsl(50, 20%, 94.12%);
+    ;
     border-radius: 5px;
     background-color: black;
 }
@@ -69,4 +70,10 @@ button {
     gap: 2rem;
     padding: 0;
     margin: 0;
+}
+
+.error {
+    color: hsl(6.32, 37.25%, 50%);
+    text-transform: capitalize;
+    text-align: center;
 }

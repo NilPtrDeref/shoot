@@ -42,12 +42,14 @@ class Game extends HTMLElement {
     this.bullets = [];
     this.queued_movements = [];
     this.sequence = 1;
+    this.quit = false;
 
     this.handle_keypress = this.handle_keypress.bind(this);
     this.handle_mouse = this.handle_mouse.bind(this);
     this.handle_message = this.handle_message.bind(this);
     this.update = this.update.bind(this);
     this.animate = this.animate.bind(this);
+    this.detach = this.detach.bind(this);
     this.process_movement = this.process_movement.bind(this);
     this.trigger_movement = this.trigger_movement.bind(this);
     this.throttled_trigger_fire = throttle((player) => {
@@ -82,6 +84,9 @@ class Game extends HTMLElement {
           }),
         );
         break;
+      case "Escape":
+        location.reload();
+        break;
     }
   }
 
@@ -99,6 +104,17 @@ class Game extends HTMLElement {
         this.mouse.y = event.offsetY;
         break;
     }
+  }
+
+  handle_error(error) {
+    this.quit = true;
+    this.ws.close();
+    this.detach();
+    this.shadowRoot.innerHTML = `
+      <link rel="stylesheet" href="/public/global.css">
+      <h1 class="error">${error}</h1>
+      <p class="error">Please refresh to go back to lobby</p>
+    `;
   }
 
   handle_message(message) {
@@ -122,10 +138,9 @@ class Game extends HTMLElement {
       }
     }
 
-    // TODO: Handle errors appropriately
+    // Handle errors
     if (data.type === "error") {
-      console.log(data);
-      this.ws.close();
+      this.handle_error(data.error);
     }
   }
 
@@ -281,7 +296,9 @@ class Game extends HTMLElement {
       });
     }
 
-    requestAnimationFrame(this.animate);
+    if (!this.quit) {
+      requestAnimationFrame(this.animate);
+    }
   }
 
   connectedCallback() {
@@ -294,9 +311,8 @@ class Game extends HTMLElement {
 
     this.dpr = window.devicePixelRatio ?? 1;
     this.canvas = this.shadowRoot.getElementById("game-window");
-    // TODO: Handle error when canvas can't be found
     if (!this.canvas) {
-      console.error("failed to load canvas");
+      this.handle_error("failed to load canvas");
       return;
     }
     this.width = this.width;
@@ -327,13 +343,17 @@ class Game extends HTMLElement {
     this.animate();
   }
 
-  disconnectedCallback() {
+  detach() {
     this.canvas.removeEventListener("mousedown", this.handle_mouse);
     this.canvas.removeEventListener("mouseup", this.handle_mouse);
     this.canvas.removeEventListener("mouseleave", this.handle_mouse);
     this.canvas.removeEventListener("mousemove", this.handle_mouse);
     window.removeEventListener("keydown", this.handle_keypress);
     window.removeEventListener("keyup", this.handle_keypress);
+  }
+
+  disconnectedCallback() {
+    this.detach();
 
     this.ws.close();
     this.shadowRoot.innerHTML = "";
