@@ -22,7 +22,11 @@ body {
 }
 
 header {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     text-align: center;
+    width: 100%;
 }
 
 header > h1 {
@@ -35,6 +39,10 @@ footer {
 
 footer > h2 {
     color: hsl(6.32, 37.25%, 50%);
+}
+
+a {
+    align-self: self-start;
 }
 
 button {
