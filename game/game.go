@@ -20,7 +20,7 @@ const (
 	PingTime      = 10 * time.Second
 	PongTimeout   = 12 * time.Second
 	WriteDeadline = 10 * time.Second
-	Slots         = 1
+	Slots         = 2
 )
 
 type Game struct {
@@ -153,8 +153,8 @@ func (r *Room) AddPlayer(conn *websocket.Conn) error {
 	player := Player{
 		ID: uuid.New().String(),
 		Info: PlayerInfo{
-			X:      0,
-			Y:      0,
+			X:      Width / 2,
+			Y:      Height / 2,
 			radius: 10,
 		},
 		conn:  conn,
