@@ -75,6 +75,13 @@ class Game extends HTMLElement {
       case "ArrowRight":
         this.movement.right = event.type === "keydown";
         break;
+      case "c":
+        this.ws.send(
+          JSON.stringify({
+            type: "reskin",
+          }),
+        );
+        break;
     }
   }
 
@@ -214,7 +221,6 @@ class Game extends HTMLElement {
       return p.id === this.self;
     });
 
-    // TODO: Slow this down, sends too frequently, try to bring down to 10 times per second
     // Handle player movement
     if (
       this.movement.up ||
@@ -237,6 +243,8 @@ class Game extends HTMLElement {
 
     if (this.players) {
       this.players.forEach((player) => {
+        if (player.spawn_time > 0) return;
+
         this.ctx.beginPath();
         this.ctx.arc(
           player.position.x * this.dpr,
@@ -246,7 +254,7 @@ class Game extends HTMLElement {
           Math.PI * 2,
           false,
         );
-        this.ctx.fillStyle = "white";
+        this.ctx.fillStyle = `hsl(${player.hue}, 100%, 50%)`;
         this.ctx.fill();
         this.ctx.closePath();
       });
@@ -254,6 +262,10 @@ class Game extends HTMLElement {
 
     if (this.bullets) {
       this.bullets.forEach((bullet) => {
+        let player = this.players.find((p) => {
+          return p.id === bullet.owner;
+        });
+
         this.ctx.beginPath();
         this.ctx.arc(
           bullet.position.x * this.dpr,
@@ -263,7 +275,7 @@ class Game extends HTMLElement {
           Math.PI * 2,
           false,
         );
-        this.ctx.fillStyle = "red";
+        this.ctx.fillStyle = `hsl(${player.hue}, 80%, 30%)`;
         this.ctx.fill();
         this.ctx.closePath();
       });

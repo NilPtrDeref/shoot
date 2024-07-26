@@ -3,6 +3,7 @@ package game
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"math/rand"
 	"slices"
 	"sync"
@@ -21,11 +22,26 @@ const (
 	BulletRadius    = 5.0
 	RefreshRate     = 60 // Target FPS
 	BulletMoveDelta = 400.0 / float64(RefreshRate)
+	RespawnTime     = time.Second
 	PingTime        = 10 * time.Second
 	PongTimeout     = 12 * time.Second
 	WriteDeadline   = 10 * time.Second
 	Slots           = 2
 )
+
+func CheckCollision(player Player, bullet Bullet) bool {
+	if player.ID == bullet.Owner {
+		return false
+	}
+
+	// Calculate the distance between the centers of the circles
+	dx := bullet.Position.X - player.Position.X
+	dy := bullet.Position.Y - player.Position.Y
+	distance := math.Sqrt(dx*dx + dy*dy)
+
+	// Check if the distance is less than the sum of the radii
+	return distance < (PlayerRadius + BulletRadius)
+}
 
 type Game struct {
 	Rooms []*Room
@@ -108,24 +124,23 @@ type Message struct {
 type Room struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
-	Slots       int64  `json:"slots"`
+	Slots       int    `json:"slots"`
 	players     []Player
 	bullets     []Bullet
-	PlayerCount int64 `json:"player_count"`
+	PlayerCount int `json:"player_count"`
 	updates     bool
 	receive     chan Message
 	*sync.RWMutex
 }
 
 func (r *Room) PlayLoop() {
+	last := time.Now()
 	ticker := time.NewTicker(time.Second / RefreshRate)
 	defer ticker.Stop()
 
 	for {
 		select {
 		// TODO: Handle these messages
-		// Collision
-		// Respawn
 		// Quit
 		case message, ok := <-r.receive:
 			if !ok {
@@ -147,8 +162,8 @@ func (r *Room) PlayLoop() {
 					player.Move(message.Event.Sequence, message.Event.Movement)
 				}
 				r.Unlock()
+
 			case "fire":
-				logrus.Info(message.Event.Bullet)
 				r.Lock()
 				player := r.FindPlayer(message.ID)
 				if player != nil && message.Event.Bullet != nil {
@@ -158,23 +173,53 @@ func (r *Room) PlayLoop() {
 					r.bullets = append(r.bullets, bullet)
 				}
 				r.Unlock()
+
+			case "reskin":
+				r.Lock()
+				player := r.FindPlayer(message.ID)
+				player.Hue = rand.Intn(360)
+				r.updates = true
+				r.Unlock()
 			}
 
-		case <-ticker.C:
+		case current := <-ticker.C:
 			r.Lock()
+
+			diff := current.Sub(last)
+			last = current
+
+			for i := range r.players {
+				if r.players[i].SpawnTime > 0 {
+					r.updates = true
+					r.players[i].SpawnTime -= diff
+					if r.players[i].SpawnTime < 0 {
+						r.players[i].SpawnTime = 0
+						r.players[i].Position.X = rand.Float64() * ((Width - (2 * PlayerRadius)) + PlayerRadius)
+						r.players[i].Position.Y = rand.Float64() * ((Height - (2 * PlayerRadius)) + PlayerRadius)
+					}
+					continue
+				}
+
+				r.bullets = slices.DeleteFunc(r.bullets, func(b Bullet) bool {
+					if CheckCollision(r.players[i], b) {
+						r.players[i].SpawnTime = RespawnTime
+						r.updates = true
+						return true
+					}
+					return false
+				})
+			}
 
 			for i := len(r.bullets) - 1; i >= 0; i-- {
 				bullet := r.bullets[i]
 				bullet.Position.X = bullet.Position.X + bullet.Direction.X*BulletMoveDelta
 				bullet.Position.Y = bullet.Position.Y + bullet.Direction.Y*BulletMoveDelta
-
-				if bullet.OutOfBounds() {
-					r.bullets = slices.Delete(r.bullets, i, i+1)
-				} else {
-					r.bullets[i] = bullet
-				}
+				r.bullets[i] = bullet
 				r.updates = true
 			}
+			r.bullets = slices.DeleteFunc(r.bullets, func(b Bullet) bool {
+				return b.OutOfBounds()
+			})
 
 			if !r.updates {
 				r.Unlock()
@@ -215,7 +260,8 @@ func (r *Room) AddPlayer(conn *websocket.Conn) error {
 	}
 
 	player := Player{
-		ID: uuid.New().String(),
+		ID:  uuid.New().String(),
+		Hue: rand.Intn(360),
 		Position: Vector2{
 			X: rand.Float64() * ((Width - (2 * PlayerRadius)) + PlayerRadius),
 			Y: rand.Float64() * ((Height - (2 * PlayerRadius)) + PlayerRadius),
@@ -227,7 +273,7 @@ func (r *Room) AddPlayer(conn *websocket.Conn) error {
 		close:  make(chan struct{}),
 	}
 	r.players = append(r.players, player)
-	r.PlayerCount = int64(len(r.players))
+	r.PlayerCount = len(r.players)
 	player.conn.WriteJSON(map[string]any{
 		"type": "bootstrap",
 		"id":   player.ID,
@@ -260,14 +306,14 @@ func (r *Room) RemovePlayer(player *Player) {
 	r.Lock()
 	defer r.Unlock()
 
-	for i, p := range r.players {
-		if p.ID == player.ID {
-			r.players = append(r.players[:i], r.players[i+1:]...)
-			r.PlayerCount = int64(len(r.players))
-			close(player.close)
-			break
-		}
-	}
+	r.players = slices.DeleteFunc(r.players, func(p Player) bool {
+		return p.ID == player.ID
+	})
+	r.PlayerCount = len(r.players)
+
+	r.bullets = slices.DeleteFunc(r.bullets, func(b Bullet) bool {
+		return b.Owner == player.ID
+	})
 
 	// Update all users to let them know a player disconnected
 	msg, err := json.Marshal(map[string]any{
@@ -299,14 +345,16 @@ func (r *Room) FindPlayer(id string) *Player {
 }
 
 type Player struct {
-	ID       string `json:"id"`
-	conn     *websocket.Conn
-	Sequence int64   `json:"sequence"`
-	Position Vector2 `json:"position"`
-	radius   float64
-	room     *Room
-	send     chan []byte
-	close    chan struct{}
+	ID        string `json:"id"`
+	conn      *websocket.Conn
+	Hue       int           `json:"hue"`
+	Sequence  int64         `json:"sequence"`
+	Position  Vector2       `json:"position"`
+	SpawnTime time.Duration `json:"spawn_time"`
+	radius    float64
+	room      *Room
+	send      chan []byte
+	close     chan struct{}
 }
 
 func (p *Player) Handle() {
