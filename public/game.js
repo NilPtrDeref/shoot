@@ -4,14 +4,19 @@ class Game extends HTMLElement {
     this.width = 768;
     this.height = 768;
     this.player_radius = 10;
+    this.bullet_radius = 4;
     this.move_delta = 5;
     this.movement = { up: false, down: false, left: false, right: false };
+    this.mouse = { clicked: false, x: 0, y: 0 };
     this.players = [];
+    this.bullets = [];
     this.queued_movements = [];
     this.sequence = 1;
 
     this.handle_keypress = this.handle_keypress.bind(this);
+    this.handle_mouse = this.handle_mouse.bind(this);
     this.handle_message = this.handle_message.bind(this);
+    this.update = this.update.bind(this);
     this.animate = this.animate.bind(this);
     this.process_movement = this.process_movement.bind(this);
     this.replay_movements_from_sequences =
@@ -20,17 +25,37 @@ class Game extends HTMLElement {
 
   handle_keypress(event) {
     switch (event.key) {
-      case "w" || "ArrowUp":
+      case "w":
+      case "ArrowUp":
         this.movement.up = event.type === "keydown";
         break;
-      case "s" || "ArrowDown":
+      case "s":
+      case "ArrowDown":
         this.movement.down = event.type === "keydown";
         break;
-      case "a" || "ArrowLeft":
+      case "a":
+      case "ArrowLeft":
         this.movement.left = event.type === "keydown";
         break;
-      case "d" || "ArrowRight":
+      case "d":
+      case "ArrowRight":
         this.movement.right = event.type === "keydown";
+        break;
+    }
+  }
+
+  handle_mouse(event) {
+    switch (event.type) {
+      case "mouseup":
+      case "mouseleave":
+        this.mouse.clicked = false;
+        break;
+      case "mousedown":
+        this.mouse.clicked = true;
+        break;
+      case "mousemove":
+        this.mouse.x = event.offsetX;
+        this.mouse.y = event.offsetY;
         break;
     }
   }
@@ -113,8 +138,9 @@ class Game extends HTMLElement {
     }
   }
 
-  animate() {
+  update() {
     // TODO: Slow this down, sends too frequently, try to bring down to 10 times per second
+    // Handle player movement
     if (
       this.movement.up ||
       this.movement.down ||
@@ -144,6 +170,15 @@ class Game extends HTMLElement {
       this.sequence++;
     }
 
+    // TODO: Send to server
+    // Handle trigger bullet creation events
+    if (this.mouse.clicked) {
+      this.bullets.push({ x: this.mouse.x, y: this.mouse.y });
+    }
+  }
+
+  animate() {
+    this.update();
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     if (this.players) {
@@ -158,6 +193,23 @@ class Game extends HTMLElement {
           false,
         );
         this.ctx.fillStyle = "white";
+        this.ctx.fill();
+        this.ctx.closePath();
+      });
+    }
+
+    if (this.bullets) {
+      this.bullets.forEach((bullet) => {
+        this.ctx.beginPath();
+        this.ctx.arc(
+          bullet.x * this.dpr,
+          bullet.y * this.dpr,
+          this.bullet_radius * this.dpr,
+          0,
+          Math.PI * 2,
+          false,
+        );
+        this.ctx.fillStyle = "red";
         this.ctx.fill();
         this.ctx.closePath();
       });
@@ -202,10 +254,18 @@ class Game extends HTMLElement {
 
     window.addEventListener("keydown", this.handle_keypress);
     window.addEventListener("keyup", this.handle_keypress);
+    this.canvas.addEventListener("mousedown", this.handle_mouse);
+    this.canvas.addEventListener("mouseup", this.handle_mouse);
+    this.canvas.addEventListener("mouseleave", this.handle_mouse);
+    this.canvas.addEventListener("mousemove", this.handle_mouse);
     this.animate();
   }
 
   disconnectedCallback() {
+    this.canvas.removeEventListener("mousedown", this.handle_mouse);
+    this.canvas.removeEventListener("mouseup", this.handle_mouse);
+    this.canvas.removeEventListener("mouseleave", this.handle_mouse);
+    this.canvas.removeEventListener("mousemove", this.handle_mouse);
     window.removeEventListener("keydown", this.handle_keypress);
     window.removeEventListener("keyup", this.handle_keypress);
 
