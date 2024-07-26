@@ -9,4 +9,4 @@ COPY . .
 RUN templ generate
 RUN go build -o app .
 
-CMD ["app"]
+CMD ["./app"]
