@@ -1,3 +1,22 @@
+function normalizeVector(x1, y1, x2, y2) {
+  // Calculate the differences
+  const deltaX = x2 - x1;
+  const deltaY = y2 - y1;
+
+  // Calculate the magnitude of the vector
+  const magnitude = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+  // Handle the case when the magnitude is zero to avoid division by zero
+  if (magnitude === 0) {
+    return { x: 0, y: 0 };
+  }
+
+  // Normalize the vector components
+  const normalizedX = deltaX / magnitude;
+  const normalizedY = deltaY / magnitude;
+
+  return { x: normalizedX, y: normalizedY };
+}
 class Game extends HTMLElement {
   constructor() {
     super();
@@ -69,6 +88,7 @@ class Game extends HTMLElement {
 
     if (data.type === "update") {
       this.players = data.players;
+      this.bullets = data.bullets;
 
       // Every time we update the players positions, recalculate the predicted position based on
       // sequence numbers of queued movements
@@ -90,7 +110,7 @@ class Game extends HTMLElement {
   replay_movements_from_sequences(player) {
     while (this.queued_movements.length > 0) {
       let queued = this.queued_movements.shift();
-      if (player.info.sequence < queued.sequence) {
+      if (player.sequence < queued.sequence) {
         this.queued_movements.unshift(queued);
         break;
       }
@@ -103,42 +123,46 @@ class Game extends HTMLElement {
 
   process_movement(player, movement) {
     if (movement.up) {
-      if (player.info.y >= this.player_radius + this.move_delta) {
-        player.info.y -= this.move_delta;
+      if (player.position.y >= this.player_radius + this.move_delta) {
+        player.position.y -= this.move_delta;
       } else {
-        player.info.y = 0 + this.player_radius;
+        player.position.y = 0 + this.player_radius;
       }
     }
     if (movement.down) {
       if (
-        player.info.y <=
+        player.position.y <=
         this.height - (this.player_radius + this.move_delta)
       ) {
-        player.info.y += this.move_delta;
+        player.position.y += this.move_delta;
       } else {
-        player.info.y = this.height - this.player_radius;
+        player.position.y = this.height - this.player_radius;
       }
     }
     if (movement.left) {
-      if (player.info.x >= this.player_radius + this.move_delta) {
-        player.info.x -= this.move_delta;
+      if (player.position.x >= this.player_radius + this.move_delta) {
+        player.position.x -= this.move_delta;
       } else {
-        player.info.x = 0 + this.player_radius;
+        player.position.x = 0 + this.player_radius;
       }
     }
     if (movement.right) {
       if (
-        player.info.x <=
+        player.position.x <=
         this.width - (this.player_radius + this.move_delta)
       ) {
-        player.info.x += this.move_delta;
+        player.position.x += this.move_delta;
       } else {
-        player.info.x = this.width - this.player_radius;
+        player.position.x = this.width - this.player_radius;
       }
     }
   }
 
   update() {
+    let player = this.players.find((p) => {
+      return p.id === this.self;
+    });
+
     // TODO: Slow this down, sends too frequently, try to bring down to 10 times per second
     // Handle player movement
     if (
@@ -160,20 +184,27 @@ class Game extends HTMLElement {
         sequence: this.sequence,
         movement: this.queued_movements,
       });
-      let player = this.players.find((p) => {
-        return p.id === this.self;
-      });
-      if (player) {
-        this.process_movement(player, this.movement);
-      }
+      this.process_movement(player, this.movement);
 
       this.sequence++;
     }
 
-    // TODO: Send to server
     // Handle trigger bullet creation events
     if (this.mouse.clicked) {
-      this.bullets.push({ x: this.mouse.x, y: this.mouse.y });
+      this.ws.send(
+        JSON.stringify({
+          type: "fire",
+          bullet: {
+            owner: this.self,
+            direction: normalizeVector(
+              player.position.x,
+              player.position.y,
+              this.mouse.x,
+              this.mouse.y,
+            ),
+          },
+        }),
+      );
     }
   }
 
@@ -185,8 +216,8 @@ class Game extends HTMLElement {
       this.players.forEach((player) => {
         this.ctx.beginPath();
         this.ctx.arc(
-          player.info.x * this.dpr,
-          player.info.y * this.dpr,
+          player.position.x * this.dpr,
+          player.position.y * this.dpr,
           this.player_radius * this.dpr,
           0,
           Math.PI * 2,
@@ -202,8 +233,8 @@ class Game extends HTMLElement {
       this.bullets.forEach((bullet) => {
         this.ctx.beginPath();
         this.ctx.arc(
-          bullet.x * this.dpr,
-          bullet.y * this.dpr,
+          bullet.position.x * this.dpr,
+          bullet.position.y * this.dpr,
           this.bullet_radius * this.dpr,
           0,
           Math.PI * 2,

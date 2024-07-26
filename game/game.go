@@ -14,15 +14,17 @@ import (
 )
 
 const (
-	Width         = 768
-	Height        = 768
-	MoveDelta     = 5
-	Radius        = 10
-	RefreshRate   = time.Second / 1
-	PingTime      = 10 * time.Second
-	PongTimeout   = 12 * time.Second
-	WriteDeadline = 10 * time.Second
-	Slots         = 2
+	Width           = 768
+	Height          = 768
+	MoveDelta       = 5.0
+	BulletMoveDelta = 5.0
+	PlayerRadius    = 10.0
+	BulletRadius    = 5.0
+	RefreshRate     = time.Second / 60
+	PingTime        = 10 * time.Second
+	PongTimeout     = 12 * time.Second
+	WriteDeadline   = 10 * time.Second
+	Slots           = 2
 )
 
 type Game struct {
@@ -52,6 +54,11 @@ func (g *Game) GetRoom(id string) *Room {
 	return nil
 }
 
+type Vector2 struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
 type Movement struct {
 	Up    bool `json:"up"`
 	Down  bool `json:"down"`
@@ -59,10 +66,38 @@ type Movement struct {
 	Right bool `json:"right"`
 }
 
+type Bullet struct {
+	Owner     string  `json:"owner"`
+	Direction Vector2 `json:"direction"`
+	Position  Vector2 `json:"position"`
+}
+
+func (b Bullet) OutOfBounds() bool {
+	if b.Position.X-BulletRadius < 0 {
+		logrus.WithField("bullet", b).Debug("bullet going off left side")
+		return true
+	}
+	if b.Position.Y-BulletRadius < 0 {
+		logrus.WithField("bullet", b).Debug("bullet going off top side")
+		return true
+	}
+	if b.Position.X+BulletRadius > Width {
+		logrus.WithField("bullet", b).Debug("bullet going off right side")
+		return true
+	}
+	if b.Position.Y+BulletRadius > Height {
+		logrus.WithField("bullet", b).Debug("bullet going off bottom side")
+		return true
+	}
+
+	return false
+}
+
 type Event struct {
 	Type      string `json:"type"`
 	Sequence  int64  `json:"sequence"`
 	*Movement `json:"movement"`
+	*Bullet   `json:"bullet"`
 }
 
 type Message struct {
@@ -75,6 +110,7 @@ type Room struct {
 	Name        string `json:"name"`
 	Slots       int64  `json:"slots"`
 	players     []Player
+	bullets     []Bullet
 	PlayerCount int64 `json:"player_count"`
 	updates     bool
 	receive     chan Message
@@ -88,7 +124,7 @@ func (r *Room) PlayLoop() {
 	for {
 		select {
 		// TODO: Handle these messages
-		// Shoot
+		// Collision
 		// Respawn
 		// Quit
 		case message, ok := <-r.receive:
@@ -105,16 +141,41 @@ func (r *Room) PlayLoop() {
 
 			switch message.Event.Type {
 			case "movement":
-				r.RLock()
+				r.Lock()
 				player := r.FindPlayer(message.ID)
 				if player != nil {
 					player.Move(message.Event.Sequence, message.Event.Movement)
 				}
-				r.RUnlock()
+				r.Unlock()
+			case "fire":
+				logrus.Info(message.Event.Bullet)
+				r.Lock()
+				player := r.FindPlayer(message.ID)
+				if player != nil && message.Event.Bullet != nil {
+					bullet := *message.Event.Bullet
+					bullet.Position.X = player.Position.X + bullet.Direction.X*BulletMoveDelta
+					bullet.Position.Y = player.Position.Y + bullet.Direction.Y*BulletMoveDelta
+					r.bullets = append(r.bullets, bullet)
+				}
+				r.Unlock()
 			}
 
 		case <-ticker.C:
 			r.Lock()
+
+			for i := len(r.bullets) - 1; i >= 0; i-- {
+				bullet := r.bullets[i]
+				bullet.Position.X = bullet.Position.X + bullet.Direction.X*BulletMoveDelta
+				bullet.Position.Y = bullet.Position.Y + bullet.Direction.Y*BulletMoveDelta
+
+				if bullet.OutOfBounds() {
+					r.bullets = slices.Delete(r.bullets, i, i+1)
+				} else {
+					r.bullets[i] = bullet
+				}
+				r.updates = true
+			}
+
 			if !r.updates {
 				r.Unlock()
 				continue
@@ -124,6 +185,7 @@ func (r *Room) PlayLoop() {
 			msg, err := json.Marshal(map[string]any{
 				"type":    "update",
 				"players": &r.players,
+				"bullets": &r.bullets,
 			})
 			if err != nil {
 				r.Unlock()
@@ -154,15 +216,15 @@ func (r *Room) AddPlayer(conn *websocket.Conn) error {
 
 	player := Player{
 		ID: uuid.New().String(),
-		Info: PlayerInfo{
-			X:      rand.Int63n(Width-(2*Radius)) + Radius,
-			Y:      rand.Int63n(Height-(2*Radius)) + Radius,
-			radius: Radius,
+		Position: Vector2{
+			X: rand.Float64() * ((Width - (2 * PlayerRadius)) + PlayerRadius),
+			Y: rand.Float64() * ((Height - (2 * PlayerRadius)) + PlayerRadius),
 		},
-		conn:  conn,
-		room:  r,
-		send:  make(chan []byte, 10),
-		close: make(chan struct{}),
+		radius: PlayerRadius,
+		conn:   conn,
+		room:   r,
+		send:   make(chan []byte, 10),
+		close:  make(chan struct{}),
 	}
 	r.players = append(r.players, player)
 	r.PlayerCount = int64(len(r.players))
@@ -171,9 +233,11 @@ func (r *Room) AddPlayer(conn *websocket.Conn) error {
 		"id":   player.ID,
 	})
 
+	// Update all users to let them know a player connected
 	msg, err := json.Marshal(map[string]any{
 		"type":    "update",
 		"players": &r.players,
+		"bullets": &r.bullets,
 	})
 	if err == nil {
 		for _, player := range r.players {
@@ -192,6 +256,7 @@ func (r *Room) AddPlayer(conn *websocket.Conn) error {
 }
 
 func (r *Room) RemovePlayer(player *Player) {
+	logrus.WithField("player", *player).Debug("removing player")
 	r.Lock()
 	defer r.Unlock()
 
@@ -200,8 +265,26 @@ func (r *Room) RemovePlayer(player *Player) {
 			r.players = append(r.players[:i], r.players[i+1:]...)
 			r.PlayerCount = int64(len(r.players))
 			close(player.close)
-			return
+			break
 		}
+	}
+
+	// Update all users to let them know a player disconnected
+	msg, err := json.Marshal(map[string]any{
+		"type":    "update",
+		"players": &r.players,
+		"bullets": &r.bullets,
+	})
+	if err == nil {
+		for _, player := range r.players {
+			player.send <- msg
+		}
+	} else {
+		logrus.WithFields(
+			logrus.Fields{
+				"room": r.ID,
+			},
+		).WithError(err).Error("failed to marshal game state")
 	}
 }
 
@@ -215,20 +298,15 @@ func (r *Room) FindPlayer(id string) *Player {
 	return &r.players[index]
 }
 
-type PlayerInfo struct {
-	Sequence int64 `json:"sequence"`
-	X        int64 `json:"x"`
-	Y        int64 `json:"y"`
-	radius   int64
-}
-
 type Player struct {
-	ID    string `json:"id"`
-	conn  *websocket.Conn
-	Info  PlayerInfo `json:"info"`
-	room  *Room
-	send  chan []byte
-	close chan struct{}
+	ID       string `json:"id"`
+	conn     *websocket.Conn
+	Sequence int64   `json:"sequence"`
+	Position Vector2 `json:"position"`
+	radius   float64
+	room     *Room
+	send     chan []byte
+	close    chan struct{}
 }
 
 func (p *Player) Handle() {
@@ -331,34 +409,34 @@ func (p *Player) HandleWrites() {
 }
 
 func (p *Player) Move(sequence int64, movement *Movement) {
-	p.Info.Sequence = sequence
+	p.Sequence = sequence
 
 	if movement.Up {
-		if p.Info.Y >= (p.Info.radius + MoveDelta) {
-			p.Info.Y -= MoveDelta
+		if p.Position.Y >= (p.radius + MoveDelta) {
+			p.Position.Y -= MoveDelta
 		} else {
-			p.Info.Y = 0 + p.Info.radius
+			p.Position.Y = 0 + p.radius
 		}
 	}
 	if movement.Down {
-		if p.Info.Y <= Height-(p.Info.radius+MoveDelta) {
-			p.Info.Y += MoveDelta
+		if p.Position.Y <= Height-(p.radius+MoveDelta) {
+			p.Position.Y += MoveDelta
 		} else {
-			p.Info.Y = Height - p.Info.radius
+			p.Position.Y = Height - p.radius
 		}
 	}
 	if movement.Left {
-		if p.Info.X >= (p.Info.radius + MoveDelta) {
-			p.Info.X -= MoveDelta
+		if p.Position.X >= (p.radius + MoveDelta) {
+			p.Position.X -= MoveDelta
 		} else {
-			p.Info.X = 0 + p.Info.radius
+			p.Position.X = 0 + p.radius
 		}
 	}
 	if movement.Right {
-		if p.Info.X <= Width-(p.Info.radius+MoveDelta) {
-			p.Info.X += MoveDelta
+		if p.Position.X <= Width-(p.radius+MoveDelta) {
+			p.Position.X += MoveDelta
 		} else {
-			p.Info.X = Width - p.Info.radius
+			p.Position.X = Width - p.radius
 		}
 	}
 
