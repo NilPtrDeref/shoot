@@ -1,3 +1,14 @@
+function throttle(func, limit) {
+  let inThrottle;
+  return function (...args) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
 function normalizeVector(x1, y1, x2, y2) {
   // Calculate the differences
   const deltaX = x2 - x1;
@@ -38,6 +49,10 @@ class Game extends HTMLElement {
     this.update = this.update.bind(this);
     this.animate = this.animate.bind(this);
     this.process_movement = this.process_movement.bind(this);
+    this.trigger_movement = this.trigger_movement.bind(this);
+    this.throttled_trigger_fire = throttle((player) => {
+      this.trigger_fire(player);
+    }, 200);
     this.replay_movements_from_sequences =
       this.replay_movements_from_sequences.bind(this);
   }
@@ -158,6 +173,42 @@ class Game extends HTMLElement {
     }
   }
 
+  trigger_movement(player) {
+    this.ws.send(
+      JSON.stringify({
+        type: "movement",
+        sequence: this.sequence,
+        movement: this.movement,
+      }),
+    );
+
+    // Use predictive movement to compensate for lag
+    this.queued_movements.push({
+      sequence: this.sequence,
+      movement: this.queued_movements,
+    });
+    this.process_movement(player, this.movement);
+
+    this.sequence++;
+  }
+
+  trigger_fire(player) {
+    this.ws.send(
+      JSON.stringify({
+        type: "fire",
+        bullet: {
+          owner: this.self,
+          direction: normalizeVector(
+            player.position.x,
+            player.position.y,
+            this.mouse.x,
+            this.mouse.y,
+          ),
+        },
+      }),
+    );
+  }
+
   update() {
     let player = this.players.find((p) => {
       return p.id === this.self;
@@ -171,40 +222,12 @@ class Game extends HTMLElement {
       this.movement.left ||
       this.movement.right
     ) {
-      this.ws.send(
-        JSON.stringify({
-          type: "movement",
-          sequence: this.sequence,
-          movement: this.movement,
-        }),
-      );
-
-      // Use predictive movement to compensate for lag
-      this.queued_movements.push({
-        sequence: this.sequence,
-        movement: this.queued_movements,
-      });
-      this.process_movement(player, this.movement);
-
-      this.sequence++;
+      this.trigger_movement(player);
     }
 
     // Handle trigger bullet creation events
     if (this.mouse.clicked) {
-      this.ws.send(
-        JSON.stringify({
-          type: "fire",
-          bullet: {
-            owner: this.self,
-            direction: normalizeVector(
-              player.position.x,
-              player.position.y,
-              this.mouse.x,
-              this.mouse.y,
-            ),
-          },
-        }),
-      );
+      this.throttled_trigger_fire(player);
     }
   }
 

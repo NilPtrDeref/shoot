@@ -17,10 +17,10 @@ const (
 	Width           = 768
 	Height          = 768
 	MoveDelta       = 5.0
-	BulletMoveDelta = 5.0
 	PlayerRadius    = 10.0
 	BulletRadius    = 5.0
-	RefreshRate     = time.Second / 60
+	RefreshRate     = 60 // Target FPS
+	BulletMoveDelta = 400.0 / float64(RefreshRate)
 	PingTime        = 10 * time.Second
 	PongTimeout     = 12 * time.Second
 	WriteDeadline   = 10 * time.Second
@@ -118,7 +118,7 @@ type Room struct {
 }
 
 func (r *Room) PlayLoop() {
-	ticker := time.NewTicker(RefreshRate)
+	ticker := time.NewTicker(time.Second / RefreshRate)
 	defer ticker.Stop()
 
 	for {
