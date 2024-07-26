@@ -3,17 +3,38 @@
     src: url('/public/BerkeleyMonoVariable-Regular.woff2');
 }
 
-body {
-    font-family: BerkeleyMono;
-}
-
 * {
     margin: 0;
+    font-family: BerkeleyMono;
 }
 
 html {
     background-color: hsl(225, 7.84%, 20%);
     color: hsl(50, 20%, 94.12%);
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    padding: 3rem;
+    align-items: center
+}
+
+header {
+    text-align: center;
+}
+
+header > h1 {
+    color: hsl(6.32, 37.25%, 50%);
+}
+
+footer {
+    width: 768px;
+}
+
+footer > h2 {
+    color: hsl(6.32, 37.25%, 50%);
 }
 
 button {
@@ -22,12 +43,9 @@ button {
     border-radius: 1rem;
     padding: 1rem;
     font-size: 1rem;
-    font-family: BerkeleyMono;
 }
 
 .container {
-    width: 100vw;
-    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -52,7 +70,6 @@ button {
     flex-direction: column;
     gap: 1rem;
     width: 768px;
-    height: 768px;
 }
 
 .room {

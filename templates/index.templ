@@ -17,9 +17,23 @@ templ Index() {
 			<link rel="icon" type="image/x-icon" href="/public/favicon.jpg"/>
 		</head>
 		<body>
+			<header>
+				<h1>Shoot!</h1>
+				<p>A small multiplayer 2D shooter game</p>
+				<p>(Only meant for desktop)</p>
+			</header>
 			<div class="container">
 				<div hx-get="/room/list" hx-trigger="load" hx-swap="outerHTML"></div>
 			</div>
+			<footer>
+				<h2>Controls</h2>
+				<ul>
+					<li>wasd or up/down/left/right - Movement</li>
+					<li>Click - Shoot</li>
+					<li>c - Change color</li>
+					<li>Escape - Quit game</li>
+				</ul>
+			</footer>
 		</body>
 	</html>
 }

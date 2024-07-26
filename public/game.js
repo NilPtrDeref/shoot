@@ -322,6 +322,7 @@ class Game extends HTMLElement {
 
     this.canvas.width = this.width * this.dpr;
     this.canvas.height = this.height * this.dpr;
+    this.canvas.scrollIntoView({ behavior: "smooth", block: "center" });
 
     this.ctx = this.canvas.getContext("2d");
     this.room = this.getAttribute("room");
@@ -329,10 +330,9 @@ class Game extends HTMLElement {
 
     this.ws.addEventListener("message", this.handle_message);
 
-    // TODO: On disconnect, try reconnect?
-    // this.ws.addEventListener("close", () => {
-    //   location.reload();
-    // });
+    this.ws.addEventListener("close", () => {
+      this.handle_error("websocket closed");
+    });
 
     window.addEventListener("keydown", this.handle_keypress);
     window.addEventListener("keyup", this.handle_keypress);
