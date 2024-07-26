@@ -3,6 +3,7 @@ package game
 import (
 	"encoding/json"
 	"errors"
+	"math/rand"
 	"slices"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ const (
 	Width         = 768
 	Height        = 768
 	MoveDelta     = 5
+	Radius        = 10
 	RefreshRate   = time.Second / 1
 	PingTime      = 10 * time.Second
 	PongTimeout   = 12 * time.Second
@@ -153,9 +155,9 @@ func (r *Room) AddPlayer(conn *websocket.Conn) error {
 	player := Player{
 		ID: uuid.New().String(),
 		Info: PlayerInfo{
-			X:      Width / 2,
-			Y:      Height / 2,
-			radius: 10,
+			X:      rand.Int63n(Width-(2*Radius)) + Radius,
+			Y:      rand.Int63n(Height-(2*Radius)) + Radius,
+			radius: Radius,
 		},
 		conn:  conn,
 		room:  r,
