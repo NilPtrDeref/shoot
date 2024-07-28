@@ -169,7 +169,7 @@ func (r *Room) PlayLoop() {
 			case "fire":
 				r.Lock()
 				player := r.FindPlayer(message.ID)
-				if player != nil && message.Event.Bullet != nil {
+				if player != nil && player.SpawnTime <= 0 && message.Event.Bullet != nil {
 					bullet := *message.Event.Bullet
 					bullet.Position.X = player.Position.X + bullet.Direction.X*BulletMoveDelta
 					bullet.Position.Y = player.Position.Y + bullet.Direction.Y*BulletMoveDelta
